@@ -1,5 +1,6 @@
 import Conversation from "../models/converstation.model.js";
 import Message from "../models/message.model.js";
+import { getReceiverSocketId, io } from "../socket/socket.js";
 
 export const sendMessage = async (req, res) => {
   try {
@@ -25,13 +26,19 @@ export const sendMessage = async (req, res) => {
       conversation.messages.push(newMessage._id);
     }
 
-    // Socket io functionality will go here
-
     // await conversation.save();
     // await newMessage.save();
 
     // this will run in parallel
     await Promise.all([conversation.save(), newMessage.save()]);
+
+    // Socket io functionality will go here
+    const receiverSockectId = getReceiverSocketId(receiverId);
+    if (receiverSockectId) {
+      // io.to(<socket_id>.emit() userd to send events to specific client)
+      io.to(receiverSockectId).emit("newMessage", newMessage);
+    }
+
     res.status(201).json(newMessage);
   } catch (error) {
     console.log("Error in sendMessage controller: ", error.message);
@@ -47,7 +54,7 @@ export const getMessages = async (req, res) => {
       participants: { $all: [senderId, userToChatId] },
     }).populate("messages"); // Not reference but actual messages
 
-    if (!conversation) return res.statuse(200).json([]);
+    if (!conversation) return res.status(200).json([]);
 
     const messages = conversation.messages;
     res.status(200).json(messages);
